@@ -64,8 +64,8 @@ class Actor(TorchActorModule):
 
         # TODO: Check batch collission
         action, self.hx = self.rnn(combined_features, hx=self.hx)
-
-        return action
+        #TODO: use activation function to get the action
+        return torch.clamp(action, -1.0, 1.0)
         
     
     def act(self, obs, test=False):
