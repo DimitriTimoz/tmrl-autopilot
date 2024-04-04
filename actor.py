@@ -25,8 +25,6 @@ class Actor(TorchActorModule):
         self.rnn = CfC(self.middle_input_size, wiring)
         self.hx = None
 
-
-
         
     def forward(self, obs, test=False, with_logprob=True):
         # TODO: normalize the observations
@@ -74,7 +72,6 @@ class Actor(TorchActorModule):
         # 0 Speed (0.0 to 1.0)
         # 1 Backward (0.0 to 1.0)
         # 2 Steering right (-1.0 to 1.0)
-
         with torch.no_grad():
-            a, _ = self.forward(obs, test, False)
+            a = self.forward(obs, test, False)
             return a.cpu().numpy()
