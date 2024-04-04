@@ -10,20 +10,7 @@ from tmrl.tools.record import record_reward_dist
 from tmrl.util import partial
 from tmrl.actor import TorchActorModule
 import numpy as np
-
-class Actor(TorchActorModule):
-    def __init__(self, observation_space, action_space):
-        super().__init__(observation_space, action_space)
-        self.obs_space = observation_space
-        self.act_space = action_space
-        self.device = 'cuda' if cfg.CUDA_INFERENCE else 'cpu'
-        print(f"Actor initialized with obs_space: {observation_space}, act_space: {action_space}")
-
-    def act(self, obs, test=False):
-        # 0 Speed (0.0 to 1.0)
-        # 1 Backward (0.0 to 1.0)
-        # 2 Steering right (-1.0 to 1.0)
-        return np.array([1.0, 0.0, 0.0], dtype=np.float32)
+from actor import Actor
 
 
 def main():
