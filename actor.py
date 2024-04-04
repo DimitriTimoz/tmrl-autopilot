@@ -1,15 +1,9 @@
-import numpy as np
 from tmrl.actor import TorchActorModule
 import tmrl.config.config_constants as cfg
-import functools
-import operator
 import torchvision.models as models
 import torch
 from ncps.torch import CfC
 from ncps.wirings import AutoNCP
-
-def prod(iterable):
-    return functools.reduce(operator.mul, iterable, 1)
 
 class Actor(TorchActorModule):
     def __init__(self, observation_space, action_space):
@@ -84,4 +78,3 @@ class Actor(TorchActorModule):
         with torch.no_grad():
             a, _ = self.forward(obs, test, False)
             return a.cpu().numpy()
-
