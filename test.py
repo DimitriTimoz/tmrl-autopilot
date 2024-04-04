@@ -1,9 +1,6 @@
-import json
-import logging
-import time
+
 from argparse import ArgumentParser, ArgumentTypeError
 
-# local imports
 import tmrl.config.config_constants as cfg
 import tmrl.config.config_objects as cfg_obj
 from tmrl.envs import GenericGymEnv
@@ -26,13 +23,11 @@ class Actor(TorchActorModule):
         # 0 Speed (0.0 to 1.0)
         # 1 Backward (0.0 to 1.0)
         # 2 Steering right (-1.0 to 1.0)
-        # 3 ??
-        return np.array([0.0, 1.0, -1.0, 1.0], dtype=np.float32)
+        return np.array([1.0, 0.0, 0.0], dtype=np.float32)
 
 
 def main():
     config = cfg_obj.CONFIG_DICT
-    
     rw = RolloutWorker(env_cls=partial(GenericGymEnv, id=cfg.RTGYM_VERSION, gym_kwargs={"config": config}),
                         actor_module_cls=Actor,
                         sample_compressor=cfg_obj.SAMPLE_COMPRESSOR,
