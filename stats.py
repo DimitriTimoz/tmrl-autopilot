@@ -41,17 +41,16 @@ class MainClient(Client):
             self.reset_data()
 
         if _time >= 0 and _time % self.period_save_pos_ms == 0:
-            
-            velocity = np.array(state.velocity)
-            rotation_matrix = np.array(state.rotation_matrix).reshape(3, 3)
-            relative_velocity = np.dot(velocity.T, rotation_matrix)
-            #print(f'\x1b[1K\rPosition: {state.position[0]:>8.1f}, {state.position[1]:>8.1f}, {state.position[2]:>8.1f}')
-            print(f'\x1b[1K\r time {_time} Velocity: {relative_velocity[0]:>8.1f}, {relative_velocity[1]:>8.1f}, {relative_velocity[2]:>8.1f}', flush=True)
-            #print(f'\x1b[1K\rYPR: {state.yaw_pitch_roll[0]:>8.2f}, {state.yaw_pitch_roll[1]:>8.2f}, {state.yaw_pitch_roll[2]:>8.2f}, ', flush=True)
             if not self.race_finished:
-                self.data["positions"].append(np.array(state.position))
-                self.data["velocity"].append(np.array(state.velocity))
-                self.data["yaw_pitch_roll"].append(np.array(state.yaw_pitch_roll))
+                velocity = np.array(state.velocity, dtype=np.float32)
+                rotation_matrix = np.array(state.rotation_matrix).reshape(3, 3)
+                relative_velocity = np.dot(velocity.T, rotation_matrix)
+
+                print(f'\x1b[1K\r time {_time} Velocity: {relative_velocity[0]:>8.1f}, {relative_velocity[1]:>8.1f}, {relative_velocity[2]:>8.1f}', flush=True)
+
+                self.data["positions"].append(np.array(state.position, dtype=np.float32))
+                self.data["velocity"].append(relative_velocity)
+                self.data["yaw_pitch_roll"].append(np.array(state.yaw_pitch_roll, dtype=np.float32))
                 wheels = state.simulation_wheels
                 wheels_states = [wheel.real_time_state  for wheel in wheels]
                 is_contact = [state.has_ground_contact for state in wheels_states]
@@ -89,16 +88,10 @@ class MainClient(Client):
             self.recording = False
             self.save_stats()
 
-    # def extract_zone_centers_time_interval(self):
-    #     number_checkpoints = round(len(self.raw_position_list) * self.period_save_pos_ms / self.target_time_gap_between_cp_ms)
-    #     self.checkpoints = [
-    #         self.raw_position_list[int(i)] for i in np.linspace(0, len(self.raw_position_list) - 1, number_checkpoints).round()
-    #     ]
-    #     self.checkpoints.append(2 * self.checkpoints[-1] - self.checkpoints[-2])  # Add a virtual checkpoint after the finish line
-    #     np.save(base_dir / "maps" / "map.npy", np.array(self.checkpoints).round(1))
 
     def plot_stats(self):
-        velocity = np.array(self.data["velocity"])
+        velocity = np.array(self.data["velocity"], dtype=np.float32)
+        print(velocity.shape)
         velocity_norm = np.linalg.norm(velocity, axis=1)
         
         acceleration = np.diff(velocity, axis=0)
