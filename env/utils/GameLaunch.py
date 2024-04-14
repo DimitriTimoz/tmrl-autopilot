@@ -1,5 +1,5 @@
 import ctypes
-from tmnfrl.env.utils.constants import GAME_PATH, GAME_DIR, GAME_WINDOW_NAME
+from .constants import GAME_PATH, GAME_DIR, GAME_WINDOW_NAME
 import subprocess
 from threading import Thread
 import time

@@ -2,19 +2,14 @@ import time
 from typing import TypeVar
 
 import numpy as np
-from gym import env
+from gym import Env
 from gym.spaces import Box, MultiBinary
 
-from tmrl_autopilot.env.TMIClient import ThreadedClient
-from tmrl_autopilot.env.utils.GameCapture import GameViewer
-from tmrl_autopilot.env.utils.GameInteraction import (
-    ArrowInput,
-    GamepadInputManager,
-    KeyboardInputManager,
-)
-from tmrl_autopilot.env.utils.GameLaunch import GameLauncher
+from .TMIClient import ThreadedClient
+from .utils.GameCapture import GameViewer
 
-ArrowsActionSpace = MultiBinary((4,))  # none up down right left
+from .utils.GameLaunch import GameLauncher
+
 ControllerActionSpace = Box(
     low=np.array([0.0, -1.0]), high=np.array([1.0, 1.0]), shape=(2,), dtype=np.float32
 )  # gas and steer
@@ -22,9 +17,9 @@ ActType = TypeVar("ActType")
 ObsType = TypeVar("ObsType")
 
 
-class Env(env):
+class TrackmaniaEnv(Env):
     """
-    Gym tmrl_autopilot.env interfacing the game.
+    Gym env interfacing the game.
     Observations are the rays of the game viewer.
     Controls are the arrow keys or the gas and steer.
     """
@@ -35,16 +30,10 @@ class Env(env):
         n_rays: int = 16,
     ):
         self.action_space = (
-            ArrowsActionSpace if action_space == "arrows" else ControllerActionSpace
+           ControllerActionSpace
         )
         self.observation_space = Box(
             low=0.0, high=1.0, shape=(n_rays + 1,), dtype=np.float32
-        )
-
-        self.input_manager = (
-            KeyboardInputManager()
-            if action_space == "arrows"
-            else GamepadInputManager()
         )
 
         game_launcher = GameLauncher()
@@ -96,33 +85,10 @@ class Env(env):
         print(f"time = {self.state.time}")
 
     def action_to_command(self, action):
-        if isinstance(self.action_space, MultiBinary):
-            return self._discrete_action_to_command(action)
-        elif isinstance(self.action_space, Box):
-            return self._continuous_action_to_command(action)
-
-    def _continuous_action_to_command(self, action):
-        gas, steer = action
-        self.input_manager.play_gas(gas)
-        self.input_manager.play_steer(steer)
-
-    def _discrete_action_to_command(self, action):
-        commands = ArrowInput.from_discrete_agent_out(action)
-        self.input_manager.play_inputs_no_release(commands)
-
-    def _restart_race(self):
-        if isinstance(self.input_manager, KeyboardInputManager):
-            self._keyboard_restart()
-        else:
-            self._gamepad_restart()
-
-    def _keyboard_restart(self):
-        self.input_manager.press_key(ArrowInput.DEL)
-        time.sleep(0.1)
-        self.input_manager.release_key(ArrowInput.DEL)
-
-    def _gamepad_restart(self):
-        self.input_manager.press_right_shoulder()
+        steer = np.clip(action[1], -1, 1)
+        steer = int(65536.0 * steer)
+        gas = action[0]
+        self.simthread.apply_action(steer=steer, gas=gas)
 
     @property
     def state(self):
@@ -167,3 +133,7 @@ class Env(env):
             self.low_speed_steps = 0
 
         return speed_reward + roll_reward + constant_reward + gas_reward
+    
+    def _restart_race(self):
+        self.simthread.restart()
+        
