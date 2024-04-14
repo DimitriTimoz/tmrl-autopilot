@@ -1,4 +1,4 @@
-from tmrl.actor import TorchActorModule
+from tmnfrl.actor import TorchActorModule
 import tmrl.config.config_constants as cfg
 import torchvision.models as models
 import torch

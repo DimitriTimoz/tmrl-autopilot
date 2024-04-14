@@ -1,5 +1,7 @@
+import queue
 import sys
 from pathlib import Path
+import threading
 
 import numpy as np
 from tminterface.client import Client, run_client
@@ -8,15 +10,16 @@ import matplotlib.pyplot as plt
 
 
 Path("maps").mkdir(exist_ok=True)
-
+#plt.ion()
 class MainClient(Client):
-    def __init__(self) -> None:
+    def __init__(self, queue) -> None:
         super(MainClient, self).__init__()
         self.race_finished = False
         self.raw_position_list = []
         self.period_save_pos_ms = 50
         self.recording = False
         self.reset_data()
+        self.queue = queue
 
     def reset_data(self):
         self.data = {}
@@ -57,6 +60,7 @@ class MainClient(Client):
                 is_sliding = [state.is_sliding for state in wheels_states]
                 self.data["wheel_contacts"].append(is_contact)
                 self.data["wheel_sliding"].append(is_sliding)
+                self.queue.put(self.data)
                 print(f'\x1b[1K\rWheel contacts: {is_contact}', flush=True)
             # print(
             #     f'Time: {_time}\n'
@@ -89,62 +93,6 @@ class MainClient(Client):
             self.save_stats()
 
 
-    def plot_stats(self):
-        velocity = np.array(self.data["velocity"], dtype=np.float32)
-        print(velocity.shape)
-        velocity_norm = np.linalg.norm(velocity, axis=1)
-        
-        acceleration = np.diff(velocity, axis=0)
-        acceleration_norm = np.linalg.norm(acceleration, axis=1)
-        
-        figure_1, ax1 = plt.subplots()
-
-        ax1.scatter(np.array(self.data["positions"])[:, 0], np.array(self.data["positions"])[:, 2], c=velocity_norm)
-        ax1.set_xlabel("X")  # Corrected from ax1.xlabel("X")
-        ax1.set_ylabel("Z")  # Corrected from ax1.ylabel("Z")
-        
-        # Get checkpoint positions
-        checkpoints = np.array(self.data["checkpoints_position"])
-        ax1.scatter(checkpoints[:, 0], checkpoints[:, 2], c="red", s=100)
-        # Annotate checkpoints
-        for i, txt in enumerate(self.data["checkpoints"]):
-            ax1.annotate(txt, (checkpoints[i, 0], checkpoints[i, 2]))
-        cbar = ax1.figure.colorbar(ax1.collections[0], ax=ax1)
-        cbar.set_label('Velocity')
-        
-        # According to the time statistics
-        figure_2, ax2 = plt.subplots(nrows=6)
-        ax2[0].plot(velocity, label=["X", "Y", "Z"])
-        ax2[0].set_xlabel("Time")
-        ax2[0].set_ylabel("Velocity")
-        
-        ax2[0].legend()
-        ax2[1].plot(velocity_norm, label="Velocity Norm")
-        ax2[1].set_xlabel("Time")
-        ax2[1].set_ylabel("Velocity Norm")
-        ax2[1].legend()
-        
-        ax2[2].plot(acceleration, label=["X", "Y", "Z"])
-        ax2[2].set_xlabel("Time")
-        ax2[2].set_ylabel("Acceleration")
-        ax2[2].legend()
-        
-        ax2[3].plot(acceleration_norm, label="Acceleration Norm")
-        ax2[3].set_xlabel("Time")
-        ax2[3].set_ylabel("Acceleration Norm")
-        ax2[3].legend()
-
-        ax2[4].plot(np.array(self.data["yaw_pitch_roll"]))
-        ax2[4].set_xlabel("Time")
-        ax2[4].set_ylabel("Yaw Pitch Roll")
-        ax2[4].legend(["Yaw", "Pitch", "Roll"])
-        wheel_contacts = np.array(self.data["wheel_contacts"])
-        print(wheel_contacts.shape)
-        ax2[5].plot(wheel_contacts, label=["Wheel 1", "Wheel 2", "Wheel 3", "Wheel 4"])
-        ax2[5].set_xlabel("Time")
-        ax2[5].set_ylabel("Wheel contacts")
-        ax2[5].legend()
-        plt.show()
 
     def save_stats(self):
         self.plot_stats()
@@ -152,11 +100,89 @@ class MainClient(Client):
         np.save(base_dir / "maps" / "velocity.npy", np.array(self.data["velocity"]))
         
          
-        
+
+def plot_stats(ax1, ax2, data):
+    velocity = np.array(data["velocity"], dtype=np.float32)
+    print(velocity.shape)
+    velocity_norm = np.linalg.norm(velocity, axis=1)
+    
+    acceleration = np.diff(velocity, axis=0)
+    acceleration_norm = np.linalg.norm(acceleration, axis=1)
+    
+    ax1.clear()
+    ax1.scatter(np.array(data["positions"])[:, 0], np.array(data["positions"])[:, 2])
+    ax1.set_xlabel("X")  # Corrected from ax1.xlabel("X")
+    ax1.set_ylabel("Z")  # Corrected from ax1.ylabel("Z")
+    
+    # Get checkpoint positions
+    checkpoints = np.array(data["checkpoints_position"])
+    if len(checkpoints) > 0:
+        ax1.scatter(checkpoints[:, 0], checkpoints[:, 2], c="red", s=100)
+        # Annotate checkpoints
+        for i, txt in enumerate(data["checkpoints"]):
+            ax1.annotate(txt, (checkpoints[i, 0], checkpoints[i, 2]))
+    cbar = ax1.figure.colorbar(ax1.collections[0], ax=ax1)
+    cbar.set_label('Velocity')
+    
+    # According to the time statistics
+    ax2[0].clear()
+    ax2[0].plot(velocity, label=["X", "Y", "Z"])
+    ax2[0].set_xlabel("Time")
+    ax2[0].set_ylabel("Velocity")
+    ax2[0].legend()
+    
+    ax2[1].clear()
+    ax2[1].plot(velocity_norm, label="Velocity Norm")
+    ax2[1].set_xlabel("Time")
+    ax2[1].set_ylabel("Velocity Norm")
+    ax2[1].legend()
+    
+    ax2[2].clear()
+    ax2[2].plot(acceleration, label=["X", "Y", "Z"])
+    ax2[2].set_xlabel("Time")
+    ax2[2].set_ylabel("Acceleration")
+    ax2[2].legend()
+    
+    ax2[3].clear()
+    ax2[3].plot(acceleration_norm, label="Acceleration Norm")
+    ax2[3].set_xlabel("Time")
+    ax2[3].set_ylabel("Acceleration Norm")
+    ax2[3].legend()
+
+    ax2[4].clear()
+    ax2[4].plot(np.array(data["yaw_pitch_roll"]))
+    ax2[4].set_xlabel("Time")
+    ax2[4].set_ylabel("Yaw Pitch Roll")
+    ax2[4].legend(["Yaw", "Pitch", "Roll"])
+    wheel_contacts = np.array(data["wheel_contacts"])
+    
+    ax2[5].clear()
+    ax2[5].plot(wheel_contacts, label=["Wheel 1", "Wheel 2", "Wheel 3", "Wheel 4"])
+    ax2[5].set_xlabel("Time")
+    ax2[5].set_ylabel("Wheel contacts")
+    ax2[5].legend()
+    plt.draw()
+
+def plotting_thread(plot_queue):
+    plt.ion()  # Turn on interactive mode
+    figure_1, ax1 = plt.subplots()
+    figure_2, ax2 = plt.subplots(nrows=6)
+    
+    while True:
+        data = plot_queue.get()  # Wait for a plot task
+        if data is None:  # None is a signal to stop
+            break
+        plot_stats(ax1, ax2, data)
+        plt.draw()
+        plot_queue.task_done()
+
+plot_queue = queue.Queue()
+thread = threading.Thread(target=plotting_thread, args=(plot_queue,))
+thread.start()
 
 base_dir = Path(__file__).resolve().parents[1]
 server_name = f"TMInterface{sys.argv[1]}" if len(sys.argv) > 1 else "TMInterface0"
 print(f"Connecting to {server_name}...")
-client = MainClient()
+client = MainClient(plot_queue)
 run_client(client, server_name)
-# %%
+thread.join()  # Wait for the plotting thread to finish
