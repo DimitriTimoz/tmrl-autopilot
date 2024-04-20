@@ -100,7 +100,7 @@ class TrackmaniaEnv(Env):
 
     @property
     def observation(self):
-        return np.concatenate([self.viewer.get_obs(), [self.speed / 400]])
+        return np.concatenate([self.viewer.get_obs(), [self.speed / 400], self.state.position ])
 
     @property
     def reward(self):
