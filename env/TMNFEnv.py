@@ -3,7 +3,7 @@ from typing import TypeVar
 
 import numpy as np
 from gym import Env
-from gym.spaces import Box, MultiBinary
+from gym.spaces import Box, MultiBinary, Dict
 
 from .TMIClient import ThreadedClient
 from .utils.GameCapture import GameViewer
@@ -12,7 +12,21 @@ from .utils.GameLaunch import GameLauncher
 
 ControllerActionSpace = Box(
     low=np.array([0.0, -1.0]), high=np.array([1.0, 1.0]), shape=(2,), dtype=np.float32
-)  # gas and steer
+)  
+
+IMAGE_SIZE = (256, 256, 3)
+
+ObservationSpace = Dict(
+    {
+        "camera": Box(low=0, high=255, shape=IMAGE_SIZE, dtype=np.uint8),
+        "position": Box(low=-10000.0, high=10000.0, shape=(3,), dtype=np.float32),
+        "velocity": Box(low=-1000.0, high=1000.0, shape=(3,), dtype=np.float32),
+        "yaw_pitch_roll": Box(low=-3.15, high=3.15, shape=(3,), dtype=np.float32),
+        "wheel_contacts": MultiBinary(4),
+        "wheel_sliding": MultiBinary(4),
+        
+    }
+)
 ActType = TypeVar("ActType")
 ObsType = TypeVar("ObsType")
 
@@ -43,7 +57,7 @@ class TrackmaniaEnv(Env):
             input("press enter when game is ready")
             time.sleep(4)
 
-        self.viewer = GameViewer(n_rays=n_rays)
+        self.viewer = GameViewer()
         self.simthread = ThreadedClient()
         self.total_reward = 0.0
         self.n_steps = 0
@@ -100,7 +114,19 @@ class TrackmaniaEnv(Env):
 
     @property
     def observation(self):
-        return np.concatenate([self.viewer.get_obs(), [self.speed / 400], self.state.position ])
+        wheels = self.state.simulation_wheels
+        wheels_states = [wheel.real_time_state  for wheel in wheels]
+        is_contact = [state.has_ground_contact for state in wheels_states]
+        is_sliding = [state.is_sliding for state in wheels_states]
+
+        return {
+            "camera": np.array(self.viewer.get_frame()),
+            "position": np.array(self.state.position, dtype=np.float32),
+            "velocity": np.array(self.state.velocity, dtype=np.float32),
+            "yaw_pitch_roll": np.array(self.state.yaw_pitch_roll, dtype=np.float32),
+            "wheel_contacts": np.array(is_contact, dtype=np.uint8),
+            "wheel_sliding": np.array(is_sliding, dtype=np.uint8),
+        }
 
     @property
     def reward(self):
@@ -117,8 +143,6 @@ class TrackmaniaEnv(Env):
             constant_reward -= 10
             gas_reward = 0
 
-        if min(self.observation) < 0.06:
-            constant_reward -= 100
 
         elif 10 < speed < 100:
             speed_reward = -1

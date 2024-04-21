@@ -16,10 +16,9 @@ def getWindowGeometry(name: str) -> tuple:
 
 
 class GameViewer:
-    def __init__(self, n_rays: int = 16) -> None:
+    def __init__(self) -> None:
         self.window_name = GAME_WINDOW_NAME
         self.sct = mss()
-        self.n_rays = n_rays
 
     @property
     def bounding_box(self):
