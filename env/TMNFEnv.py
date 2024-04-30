@@ -14,7 +14,7 @@ ControllerActionSpace = Box(
     low=np.array([0.0, -1.0]), high=np.array([1.0, 1.0]), shape=(2,), dtype=np.float32
 )  
 
-IMAGE_SIZE = (256, 256, 3)
+IMAGE_SIZE = (456, 456, 3)
 
 ObservationSpace = Dict(
     {
@@ -46,9 +46,7 @@ class TrackmaniaEnv(Env):
         self.action_space = (
            ControllerActionSpace
         )
-        self.observation_space = Box(
-            low=0.0, high=1.0, shape=(n_rays + 1,), dtype=np.float32
-        )
+        self.observation_space = ObservationSpace
 
         game_launcher = GameLauncher()
         if not game_launcher.game_started:
@@ -101,7 +99,7 @@ class TrackmaniaEnv(Env):
     def action_to_command(self, action):
         steer = np.clip(action[1], -1, 1)
         steer = int(65536.0 * steer)
-        gas = action[0]
+        gas = int(np.clip(action[0], -1, 1))
         self.simthread.apply_action(steer=steer, gas=gas)
 
     @property

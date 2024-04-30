@@ -31,7 +31,7 @@ class GameViewer:
 
     def get_frame(
         self,
-        size=(256, 280),
+        size=(456, 456),
     ) -> np.ndarray:
         """
         Pulls a frame from the game and processes it
@@ -47,9 +47,11 @@ class GameViewer:
             self.get_raw_frame(),
             size,
         )
+        # Remove the alpha channel and get the channels in the first dimension
+        img = img[:, :, :3]
         print(img.shape)
         # cut the bottom part of the screen
-        return img[:256, :, :]
+        return img
 
     def get_raw_frame(self):
         """
@@ -70,7 +72,7 @@ class GameViewer:
                 "processed",
                 cv2.resize(
                     cur_frame,
-                    (256, 256),
+                    (456, 456),
                 ),
             )
             if (cv2.waitKey(1) & 0xFF) == ord("q"):
